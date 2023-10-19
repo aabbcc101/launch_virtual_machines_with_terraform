@@ -1,0 +1,43 @@
+#!/bin/bash
+
+addForward() {
+        Guest_name=$1
+        Guest_ipaddr=$2
+        Guest_port=$3
+        Host_ipaddr=$4
+        Host_port=$5
+
+        length=$(( ${#Host_port[@]} - 1 ))
+        if [ "${VM}" = "${Guest_name}" ]; then
+           if [ "${ACTION}" = "stopped" ] || [ "${ACTION}" = "reconnect" ]; then
+                 for i in `seq 0 $length`; do
+                        iptables -t nat -D PREROUTING -d ${Host_ipaddr} -p tcp --dport ${Host_port[$i]} -j DNAT --to ${Guest_ipaddr}:${Guest_port[$i]}
+                        iptables -D FORWARD -d ${Guest_ipaddr} -p tcp -m state --state NEW -m tcp --dport ${Guest_port[$i]} -j ACCEPT
+                 done
+           fi
+           if [ "${ACTION}" = "start" ] || [ "${ACTION}" = "reconnect" ]; then
+                 for i in `seq 0 $length`; do
+                        iptables -t nat -A PREROUTING -d ${Host_ipaddr} -p tcp --dport ${Host_port[$i]} -j DNAT --to ${Guest_ipaddr}:${Guest_port[$i]}
+                        iptables -I FORWARD -d ${Guest_ipaddr} -p tcp -m state --state NEW -m tcp --dport ${Guest_port[$i]} -j ACCEPT
+                 done
+           fi
+        fi
+}
+
+VM=${1}
+ACTION=${2}
+
+Host_port=('10022' '10080' '10433')
+Guest_port=('22' '80' '433')
+addForward centos 192.168.122.10 $Guest_port 192.168.1.4 $Host_port
+#addForward centos 192.168.122.10 $Guest_port 127.0.0.1 $Host_port
+
+Host_port=('11022' '11080' '11433')
+Guest_port=('22' '80' '433')
+addForward cloud-debian 192.168.122.11 $Guest_port 192.168.1.4 $Host_port
+
+Host_port=('12022' '12080' '12433')
+Guest_port=('22' '80' '433')
+addForward main-debian 192.168.122.12 $Guest_port 127.0.0.1 $Host_port
+addForward main-debian 192.168.122.12 $Guest_port 192.168.1.4 $Host_port
+
